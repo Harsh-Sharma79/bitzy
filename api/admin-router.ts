@@ -4,13 +4,13 @@
  * (or their profile role === 'admin') before executing.
  *
  * Add to api/router.ts:
- *   import { adminRouter } from "./admin-router";
+ *   import { adminRouter } from "./admin-router.js";
  *   ...
  *   admin: adminRouter,
  */
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
+import { createRouter, publicQuery } from "./middleware.js";
+import { getDb } from "./queries/connection.js";
 
 const ADMIN_EMAIL = "aaryanpandeyop@gmail.com";
 

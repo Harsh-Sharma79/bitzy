@@ -9,7 +9,7 @@ import {
   validateSpellSubmission,
   type RecordStorage,
   type SpellTestCase,
-} from '../src/lib/bossBattle';
+} from '../src/lib/bossBattle.js';
 
 class MemoryStorage implements RecordStorage {
   private values = new Map<string, string>();
