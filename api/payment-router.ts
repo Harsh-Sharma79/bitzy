@@ -1,9 +1,9 @@
 import { z } from "zod";
 import crypto from "crypto";
 import Razorpay from "razorpay";
-import { createRouter, publicQuery } from "./middleware.js";
-import { getDb, getServiceDb } from "./queries/connection.js";
-import { env } from "./lib/env.js";
+import { createRouter, publicQuery } from "./middleware";
+import { getDb, getServiceDb } from "./queries/connection";
+import { env } from "./lib/env";
 
 function getRazorpay() {
   return new Razorpay({ key_id: env.razorpayKeyId, key_secret: env.razorpayKeySecret });

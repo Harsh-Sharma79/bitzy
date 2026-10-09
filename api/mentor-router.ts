@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware.js";
-import { getDb } from "./queries/connection.js";
+import { createRouter, publicQuery } from "./middleware";
+import { getDb } from "./queries/connection";
 
 const DEFAULT_USER_ID = 1;
 

@@ -4,15 +4,16 @@
  * ⚔️ BOSS BATTLE — Turn-based RPG combat.
  * Boss charges up an attack. Player must write correct code to BLOCK & COUNTER.
  * Boss has rage mode, taunts, attack animations, screen shake.
- * All code runs in-browser via new Function().
+ * Learner code runs in a time-limited worker with app/network APIs disabled.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Shield, Zap, Heart, Trophy, RotateCcw, Swords, Skull, ChevronRight, Star } from 'lucide-react';
 import { useGame } from '@/context/GameContext';
 import { useAuth } from '@/context/AuthContext';
-import WatchAdButton from '@/components/WatchAdButton';
-import { AD_UNITS } from '@/lib/ads';
+import { runSpellTests, readLocalBossBattleRecord, recordLocalBossVictory } from '@/lib/bossBattle';
+import type { SpellTestCase, SpellTestResult } from '@/lib/bossBattle';
+import { saveGameProgress } from '@/lib/gamification';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Spell {
@@ -21,7 +22,7 @@ interface Spell {
   emoji: string;
   desc: string;
   starterCode: string;
-  tests: { input: string; expected: string; label: string }[];
+  tests: SpellTestCase[];
   hint: string;
   damage: number;  // boss HP damage on pass
   mana: number;    // mana cost
@@ -150,8 +151,8 @@ const BOSSES: Boss[] = [
         mana: 45, damage: 2,
         starterCode: `function memoize(fn) {\n  const cache = {};\n  return function(...args) {\n    // cache results by stringified args\n  };\n}`,
         tests: [
-          { input: `let calls=0; const f=memoize(n=>{calls++;return n*2}); f(5);f(5); String(calls)`, expected: `1`, label: 'Cached' },
-          { input: `const f=memoize((a,b)=>a+b); String(f(2,3))`,                                     expected: `5`, label: 'Result' },
+          { input: `(() => { let calls=0; const f=memoize(n=>{calls++;return n*2}); f(5); f(5); return String(calls); })()`, expected: `1`, label: 'Cached' },
+          { input: `(() => { const f=memoize((a,b)=>a+b); return String(f(2,3)); })()`,               expected: `5`, label: 'Result' },
         ],
         hint: 'const key=JSON.stringify(args); if(key in cache) return cache[key]; return cache[key]=fn(...args);',
       },
@@ -160,7 +161,7 @@ const BOSSES: Boss[] = [
         mana: 55, damage: 3,
         starterCode: `function deepClone(obj) {\n  // Return a deep copy — changes to copy must not affect original\n  return null;\n}`,
         tests: [
-          { input: `const o={a:{b:1}}; const c=deepClone(o); c.a.b=99; String(o.a.b)`, expected: `1`,                   label: 'No mutation' },
+          { input: `(() => { const o={a:{b:1}}; const c=deepClone(o); c.a.b=99; return String(o.a.b); })()`, expected: `1`, label: 'No mutation' },
           { input: `JSON.stringify(deepClone({x:[1,{y:2}]}))`,                          expected: `{"x":[1,{"y":2}]}`, label: 'Deep copy' },
         ],
         hint: 'JSON.parse(JSON.stringify(obj)) works for simple objects.',
@@ -225,8 +226,8 @@ const BOSSES: Boss[] = [
         mana: 70, damage: 4,
         starterCode: `class EventEmitter {\n  constructor() { this.listeners = {}; }\n  on(event, fn) { /* add listener */ }\n  off(event, fn) { /* remove listener */ }\n  emit(event, ...args) { /* call all listeners */ }\n}`,
         tests: [
-          { input: `const e=new EventEmitter(); let r=''; e.on('x',v=>r+=v); e.emit('x','a'); e.emit('x','b'); r`, expected: `ab`, label: 'Emit' },
-          { input: `const e=new EventEmitter(); let r=0; const f=()=>r++; e.on('x',f); e.off('x',f); e.emit('x'); String(r)`, expected: `0`, label: 'Off' },
+          { input: `(() => { const e=new EventEmitter(); let r=''; e.on('x',v=>r+=v); e.emit('x','a'); e.emit('x','b'); return r; })()`, expected: `ab`, label: 'Emit' },
+          { input: `(() => { const e=new EventEmitter(); let r=0; const f=()=>r++; e.on('x',f); e.off('x',f); e.emit('x'); return String(r); })()`, expected: `0`, label: 'Off' },
         ],
         hint: 'on: push to array. off: filter. emit: forEach call.',
       },
@@ -234,22 +235,9 @@ const BOSSES: Boss[] = [
   },
 ];
 
-// ─── Code runner ──────────────────────────────────────────────────────────────
-async function runCode(userCode: string, testInput: string): Promise<{ output: string; error: string | null }> {
-  try {
-    const fullCode = `${userCode}\nreturn (async()=>{ return ${testInput}; })();`;
-    // eslint-disable-next-line no-new-func
-    const fn = new Function(fullCode);
-    const output = await fn();
-    return { output: String(output), error: null };
-  } catch (e: any) {
-    return { output: '', error: e.message };
-  }
-}
-
 type Phase = 'lobby' | 'battle' | 'victory' | 'defeat';
 type BattleState = 'player_turn' | 'boss_attacking' | 'spell_result' | 'boss_rage';
-interface TestResult { passed: boolean; label: string; got: string; expected: string }
+type TestResult = SpellTestResult;
 
 // ─── Boss HP Bar ──────────────────────────────────────────────────────────────
 function BossHPBar({ hp, maxHP, color, rage }: { hp: number; maxHP: number; color: string; rage: boolean }) {
@@ -389,7 +377,7 @@ function SpellCard({ spell, canAfford, selected, onClick }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function BossBattlePage() {
   const { showXPPopup, addXP, addCoins } = useGame();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
 
   const [phase, setPhase] = useState<Phase>('lobby');
   const [boss, setBoss] = useState<Boss | null>(null);
@@ -400,6 +388,7 @@ export default function BossBattlePage() {
   const [selectedSpell, setSelectedSpell] = useState<Spell | null>(null);
   const [code, setCode] = useState('');
   const [running, setRunning] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [results, setResults] = useState<TestResult[] | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [currentAttack, setCurrentAttack] = useState<BossAttack | null>(null);
@@ -408,6 +397,16 @@ export default function BossBattlePage() {
   const [score, setScore] = useState(0);
   const [bossMsg, setBossMsg] = useState('');
   const [spellCast, setSpellCast] = useState(false);
+  const [localRecordState, setLocalRecordState] = useState(() => {
+    const userId = user?.id ?? '';
+    return { userId, record: readLocalBossBattleRecord(userId) };
+  });
+  const currentUserId = user?.id ?? '';
+  const localRecord = localRecordState.userId === currentUserId
+    ? localRecordState.record
+    : readLocalBossBattleRecord(currentUserId);
+  const [localRecordSaved, setLocalRecordSaved] = useState<boolean | null>(null);
+  const [rewardSync, setRewardSync] = useState<{ status: 'idle' | 'saving' | 'confirmed' | 'pending'; xp: boolean | null; coins: boolean | null; history: boolean | null }>({ status: 'idle', xp: null, coins: null, history: null });
 
   const bossControls = useAnimation();
   const screenControls = useAnimation();
@@ -417,10 +416,28 @@ export default function BossBattlePage() {
 
   // Boss attack cycle — fires every 12s during player turn
   const attackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRefs = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const activeRunRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
 
-  const clearAttackTimer = () => {
+  const clearAttackTimer = useCallback(() => {
     if (attackTimerRef.current) clearInterval(attackTimerRef.current);
-  };
+    attackTimerRef.current = null;
+  }, []);
+
+  const clearPendingTimeouts = useCallback(() => {
+    timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
+    timeoutRefs.current.clear();
+  }, []);
+
+  const scheduleTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeout = setTimeout(() => {
+      timeoutRefs.current.delete(timeout);
+      callback();
+    }, delay);
+    timeoutRefs.current.add(timeout);
+    return timeout;
+  }, []);
 
   const bossAttack = useCallback((b: Boss, currentBossHP: number, currentPlayerHP: number) => {
     if (currentBossHP <= 0 || currentPlayerHP <= 0) return;
@@ -441,7 +458,7 @@ export default function BossBattlePage() {
     });
 
     setShowAttackFX(true);
-    setTimeout(() => {
+    scheduleTimeout(() => {
       setShowAttackFX(false);
       setPlayerHP(prev => {
         const newHP = Math.max(0, prev - atk.damage);
@@ -453,9 +470,9 @@ export default function BossBattlePage() {
       });
       setBattleState('player_turn');
     }, 1800);
-  }, [bossControls, screenControls]);
+  }, [bossControls, screenControls, scheduleTimeout, clearAttackTimer]);
 
-  const startAttackTimer = useCallback((b: Boss, _bHP: number, _pHP: number) => {
+  const startAttackTimer = useCallback((b: Boss) => {
     clearAttackTimer();
     attackTimerRef.current = setInterval(() => {
       setBossHP(currentBHP => {
@@ -470,9 +487,12 @@ export default function BossBattlePage() {
         return currentBHP;
       });
     }, 12000);
-  }, [bossAttack]);
+  }, [bossAttack, clearAttackTimer]);
 
   const startBattle = (b: Boss) => {
+    activeRunRef.current?.abort();
+    activeRunRef.current = null;
+    clearPendingTimeouts();
     clearAttackTimer();
     setBoss(b);
     setBossHP(b.maxHP);
@@ -481,95 +501,161 @@ export default function BossBattlePage() {
     setBattleState('player_turn');
     setSelectedSpell(null);
     setCode('');
+    setCodeError(null);
     setResults(null);
     setShowHint(false);
     setRage(false);
     setScore(0);
     setBossMsg(b.taunt);
     setSpellCast(false);
+    setRewardSync({ status: 'idle', xp: null, coins: null, history: null });
+    setLocalRecordSaved(null);
     setPhase('battle');
     // Start attack timer after 15s grace period
-    setTimeout(() => startAttackTimer(b, b.maxHP, MAX_PLAYER_HP), 15000);
+    scheduleTimeout(() => startAttackTimer(b), 15000);
   };
 
-  useEffect(() => () => clearAttackTimer(), []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      activeRunRef.current?.abort();
+      activeRunRef.current = null;
+      clearPendingTimeouts();
+      clearAttackTimer();
+    };
+  }, [clearPendingTimeouts, clearAttackTimer]);
 
   const selectSpell = (spell: Spell) => {
     if (mana < spell.mana) return;
     setSelectedSpell(spell);
     setCode(spell.starterCode);
+    setCodeError(null);
     setResults(null);
     setShowHint(false);
     setSpellCast(false);
   };
 
+  const finalizeVictory = async (defeatedBoss: Boss, finalScore: number) => {
+    const userId = user?.id ?? '';
+    const local = recordLocalBossVictory(userId, defeatedBoss.id, finalScore);
+    setLocalRecordSaved(local !== null);
+    if (local) setLocalRecordState({ userId, record: local });
+    setRewardSync({ status: 'saving', xp: null, coins: null, history: null });
+
+    const work = Promise.allSettled([
+      addXP(defeatedBoss.xpReward, 'boss_battle'),
+      addCoins(defeatedBoss.coinReward),
+      userId ? saveGameProgress(userId, 'boss-battle', {
+        score: finalScore,
+        xpEarned: defeatedBoss.xpReward,
+        coinsEarned: defeatedBoss.coinReward,
+        topic: defeatedBoss.id,
+        questionIndex: 0,
+      }) : Promise.resolve(null),
+    ]);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<{ timedOut: true }>(resolve => {
+      timeoutId = setTimeout(() => resolve({ timedOut: true }), 7000);
+    });
+    const outcome = await Promise.race([
+      work.then(result => ({ timedOut: false as const, result })),
+      timedOut,
+    ]);
+    if (timeoutId) clearTimeout(timeoutId);
+    if (!mountedRef.current) return;
+
+    let xpSaved: boolean | null = null;
+    let coinsSaved: boolean | null = null;
+    let historySaved: boolean | null = null;
+    if (outcome.timedOut) {
+      setRewardSync({ status: 'pending', xp: null, coins: null, history: null });
+    } else {
+      const [xpResult, coinResult, historyResult] = outcome.result;
+      xpSaved = xpResult.status === 'fulfilled' && xpResult.value === true;
+      coinsSaved = coinResult.status === 'fulfilled' && coinResult.value === true;
+      historySaved = historyResult.status === 'fulfilled' && historyResult.value !== null;
+      setRewardSync({
+        status: xpSaved && coinsSaved && historySaved ? 'confirmed' : 'pending',
+        xp: xpSaved,
+        coins: coinsSaved,
+        history: historySaved,
+      });
+      if (xpSaved) showXPPopup(defeatedBoss.xpReward, 'xp', `🏆 ${defeatedBoss.name} defeated! +${defeatedBoss.xpReward} XP`);
+    }
+    clearAttackTimer();
+    setPhase('victory');
+  };
+
   const castSpell = async () => {
     if (!selectedSpell || !boss || running || battleState !== 'player_turn') return;
+    setCodeError(null);
     clearAttackTimer();
+    const controller = new AbortController();
+    activeRunRef.current?.abort();
+    activeRunRef.current = controller;
     setRunning(true);
     setResults(null);
-
-    const testResults: TestResult[] = [];
-    for (const test of selectedSpell.tests) {
-      const { output, error } = await runCode(code, test.input.trim());
-      const passed = !error && output.trim() === test.expected.trim();
-      testResults.push({ passed, label: test.label, got: error ? `Error: ${error}` : output, expected: test.expected });
+    const evaluation = await runSpellTests(code, selectedSpell.tests, undefined, controller.signal);
+    if (activeRunRef.current === controller) activeRunRef.current = null;
+    if (!mountedRef.current || controller.signal.aborted) return;
+    setRunning(false);
+    if (evaluation.kind !== 'results') {
+      setCodeError(evaluation.error);
+      startAttackTimer(boss);
+      return;
     }
+    await resolveSpellEvaluation(evaluation.results, selectedSpell, boss);
+  };
+
+  const resolveSpellEvaluation = async (testResults: TestResult[], spell: Spell, currentBoss: Boss) => {
+    const allPassed = testResults.every(result => result.passed);
     setResults(testResults);
-    const allPassed = testResults.every(r => r.passed);
     setRunning(false);
     setBattleState('spell_result');
     setSpellCast(true);
 
     if (allPassed) {
-      // Hit the boss
-      setMana(m => Math.max(0, m - selectedSpell.mana));
-      const newBossHP = Math.max(0, bossHP - selectedSpell.damage);
+      setMana(current => Math.max(0, current - spell.mana));
+      const newBossHP = Math.max(0, bossHP - spell.damage);
+      const finalScore = score + spell.damage * 100 + 50;
       setBossHP(newBossHP);
-      setScore(s => s + selectedSpell.damage * 100 + 50);
+      setScore(finalScore);
       setBossMsg('');
-
-      // Boss recoil anim
       bossControls.start({
         x: [0, 30, -30, 15, -15, 0],
         filter: ['brightness(1)', 'brightness(3)', 'brightness(1)'],
-        transition: { duration: 0.6 }
+        transition: { duration: 0.6 },
       });
 
-      // Check rage
-      const isRage = !rage && newBossHP <= boss.rageThreshold;
+      const isRage = !rage && newBossHP > 0 && newBossHP <= currentBoss.rageThreshold;
       if (isRage) {
         setRage(true);
-        setBossMsg(boss.rageTaunt);
+        setBossMsg(currentBoss.rageTaunt);
         setBattleState('boss_rage');
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setBattleState('player_turn');
-          startAttackTimer(boss, newBossHP, playerHP);
+          startAttackTimer(currentBoss);
         }, 2500);
       } else if (newBossHP <= 0) {
         clearAttackTimer();
-        addXP(boss.xpReward, 'boss_battle');
-        addCoins(boss.coinReward);
-        showXPPopup(boss.xpReward, 'xp', `🏆 ${boss.name} defeated! +${boss.xpReward} XP`);
-        setTimeout(() => setPhase('victory'), 1200);
+        await finalizeVictory(currentBoss, finalScore);
       } else {
-        // Mana regen on success
-        setMana(m => Math.min(MAX_MANA, m + 20));
-        setTimeout(() => {
+        setMana(current => Math.min(MAX_MANA, current + 20));
+        scheduleTimeout(() => {
           setBattleState('player_turn');
           setSpellCast(false);
-          startAttackTimer(boss, newBossHP, playerHP);
+          startAttackTimer(currentBoss);
         }, 2000);
       }
     } else {
-      // Failed spell — boss counterattack immediately
-      setMana(m => Math.min(MAX_MANA, Math.max(0, m - Math.floor(selectedSpell.mana / 2))));
-      setBossMsg("HA! Your spell fizzles! Counter-strike! 😈");
-      setTimeout(() => {
-        bossAttack(boss, bossHP, playerHP);
-        setTimeout(() => {
+      setMana(current => Math.min(MAX_MANA, Math.max(0, current - Math.floor(spell.mana / 2))));
+      setBossMsg('Your spell fizzles. Review the failed tests and try again.');
+      scheduleTimeout(() => {
+        bossAttack(currentBoss, bossHP, playerHP);
+        scheduleTimeout(() => {
           setSpellCast(false);
-          startAttackTimer(boss, bossHP, playerHP);
+          startAttackTimer(currentBoss);
         }, 2500);
       }, 1000);
     }
@@ -584,9 +670,23 @@ export default function BossBattlePage() {
             <Skull className="w-7 h-7" style={{ color: '#FF4B4B' }} /> Boss Battles
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Cast code spells to defeat ancient bosses. Write real JS to attack! ⚔️
+            Solve real JavaScript and HTML exercises, see each test result, and defeat the HTML Dragon.
           </p>
         </div>
+
+        <section className="d-card space-y-3" aria-label="Boss battle instructions and local record">
+          <div>
+            <h2 className="text-sm font-extrabold">How a battle works</h2>
+            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Choose a spell, complete its function, then cast it. Pass every test to damage the boss; failed tests show the expected result before the boss counterattacks.</p>
+          </div>
+          <p className="rounded-xl border px-3 py-2 text-xs leading-5" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text-muted)' }}>
+            Your code runs in a separate, time-limited Web Worker. Network, storage, and nested-worker APIs are disabled. Personal bests are kept on this device; account rewards require a successful Supabase save.
+          </p>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold" aria-live="polite">
+            <span>{localRecord.wins} {localRecord.wins === 1 ? 'win' : 'wins'} on this device</span>
+            <span style={{ color: 'var(--text-muted)' }}>Best score: {localRecord.bestScore}</span>
+          </div>
+        </section>
 
         {BOSSES.map((b, idx) => {
           const userXP = profile?.xp ?? 0;
@@ -718,9 +818,19 @@ export default function BossBattlePage() {
         <p className="font-bold text-lg">{boss.name} falls before your code! 🎉</p>
 
         <div className="d-card p-6 max-w-xs mx-auto space-y-3">
-          <div className="text-3xl font-black" style={{ color: '#58CC02' }}>+{boss.xpReward} XP</div>
-          <div className="font-bold" style={{ color: '#CE82FF' }}>+{boss.coinReward} 💎 Coins</div>
+          <div className="text-lg font-black" style={{ color: rewardSync.xp === true ? 'var(--green)' : 'var(--text-muted)' }}>
+            {rewardSync.xp === true ? `+${boss.xpReward} XP saved` : rewardSync.xp === null ? 'XP confirmation pending' : 'XP not confirmed'}
+          </div>
+          <div className="font-bold" style={{ color: rewardSync.coins === true ? 'var(--purple-dark)' : 'var(--text-muted)' }}>
+            {rewardSync.coins === true ? `+${boss.coinReward} coins saved` : rewardSync.coins === null ? 'Coin confirmation pending' : 'Coins not confirmed'}
+          </div>
           <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Score: {score}</div>
+          <div role="status" className="rounded-xl px-3 py-2 text-xs leading-5" style={{ backgroundColor: 'var(--surface)', color: 'var(--text-muted)' }}>
+            {rewardSync.status === 'confirmed'
+              ? 'XP, coins, and battle history were confirmed in your Bitzy account.'
+              : 'This win is not fully confirmed in your account. The game keeps a separate on-device win record; queued account updates may sync later.'}
+            {' '}{localRecordSaved === true ? 'This device’s win history was saved.' : 'This device could not save the win history.'}
+          </div>
           <div className="flex justify-center gap-1">
             {Array.from({ length: 3 }).map((_, i) => (
               <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5 + i * 0.2 }}>
@@ -917,7 +1027,9 @@ export default function BossBattlePage() {
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{selectedSpell.desc}</p>
             </div>
             <button
-              onClick={() => { setSelectedSpell(null); setResults(null); setSpellCast(false); clearAttackTimer(); startAttackTimer(boss, bossHP, playerHP); }}
+              type="button"
+              onClick={() => { setSelectedSpell(null); setResults(null); setSpellCast(false); clearAttackTimer(); startAttackTimer(boss); }}
+              disabled={running}
               className="text-xs px-3 py-1.5 rounded-xl border-2 font-bold"
               style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
             >
@@ -951,6 +1063,8 @@ export default function BossBattlePage() {
               </span>
             </div>
             <textarea
+              aria-label={`JavaScript solution for ${selectedSpell.name}`}
+              maxLength={10_000}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               spellCheck={false}
@@ -977,6 +1091,9 @@ export default function BossBattlePage() {
           <AnimatePresence>
             {showHint && (
               <motion.div
+                id="boss-spell-hint"
+                role="region"
+                aria-label="Spell hint"
                 initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                 className="p-3 rounded-2xl text-xs"
                 style={{ backgroundColor: 'rgba(255,200,0,0.12)', color: '#8B6914' }}
@@ -988,8 +1105,8 @@ export default function BossBattlePage() {
 
           {/* Test results */}
           <AnimatePresence>
-            {results && spellCast && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+        {results && spellCast && (
+              <motion.div role="status" aria-live="polite" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
                 {results.every(r => r.passed) ? (
                   <motion.div
                     initial={{ scale: 0.8 }} animate={{ scale: 1 }}
@@ -1022,28 +1139,33 @@ export default function BossBattlePage() {
             )}
           </AnimatePresence>
 
+          {rewardSync.status === 'saving' && (
+            <p role="status" className="rounded-xl px-3 py-2 text-center text-xs font-semibold" style={{ backgroundColor: 'var(--surface)', color: 'var(--text-muted)' }}>
+              Boss defeated. Saving account rewards and recording this-device history…
+            </p>
+          )}
+
+          {codeError && (
+            <div role="alert" className="rounded-xl border px-3 py-2.5 text-sm font-semibold" style={{ borderColor: 'rgba(217,75,75,.24)', backgroundColor: 'rgba(217,75,75,.08)', color: '#B42318' }}>
+              {codeError} No mana or health was lost. Fix the issue and cast again.
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex gap-2">
-            {showHint ? (
-              <button
-                onClick={() => setShowHint(false)}
-                className="px-4 py-3 rounded-2xl border-2 text-sm font-bold"
-                style={{ borderColor: '#FFC800', color: '#FFC800' }}
-              >
-                💡
-              </button>
-            ) : (
-              <WatchAdButton
-                adUnitId={AD_UNITS.hint}
-                label="💡"
-                onReward={() => setShowHint(true)}
-                className="px-4 py-3 rounded-2xl border-2 text-sm font-bold"
-                style={{ borderColor: '#FFC800', color: '#FFC800' }}
-              />
-            )}
+            <button
+              type="button"
+              onClick={() => setShowHint(value => !value)}
+              aria-expanded={showHint}
+              aria-controls="boss-spell-hint"
+              className="d-btn d-btn-sm d-btn-white"
+            >
+              {showHint ? 'Hide hint' : 'Show hint'}
+            </button>
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={castSpell}
+              type="button"
               disabled={running || battleState !== 'player_turn'}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white"
               style={{
@@ -1053,7 +1175,7 @@ export default function BossBattlePage() {
               }}
             >
               {running ? (
-                <span className="animate-pulse">Casting…</span>
+                <span className="animate-pulse" role="status">Running isolated tests…</span>
               ) : (
                 <>
                   <Swords className="w-4 h-4" />

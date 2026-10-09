@@ -4,7 +4,7 @@ import {
   challenges, achievements, userAchievements,
   codeSubmissions, leaderboardEntries,
   chatMessages,
-} from "./schema.js";
+} from "./schema";
 
 export const usersRelations = relations(users, ({ one }) => ({
   profile: one(profiles, { fields: [users.id], references: [profiles.userId] }),

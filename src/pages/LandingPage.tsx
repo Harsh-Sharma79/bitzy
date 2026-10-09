@@ -1,102 +1,122 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, BookOpen, Gamepad2, Swords, Star, Flame, Zap, CheckCircle2, Trophy, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, BookOpen, Gamepad2, Swords, Trophy, LayoutDashboard, CheckCircle2, Flame, Zap } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+
+const features = [
+  { icon: BookOpen, label: 'Structured courses' },
+  { icon: Gamepad2, label: 'Practice through play' },
+  { icon: Swords, label: 'Coding challenges' },
+  { icon: Trophy, label: 'Progress you can see' },
+];
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
 
-  const features = [
-    { icon: BookOpen, text: '15+ coding courses' },
-    { icon: Gamepad2, text: '7 game modes' },
-    { icon: Swords, text: '50+ challenges' },
-    { icon: Trophy, text: 'Diamond League' },
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
-      <header className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#2B7FFF' }}>
-            <img src="/mascot.png" alt="" className="w-8 h-8 object-contain" />
-          </div>
-          <span className="font-display text-2xl font-black" style={{ color: '#2B7FFF' }}>Bitzy</span>
-        </div>
-        {isLoggedIn ? (
-          <button onClick={() => navigate('/app/dashboard')} className="d-btn d-btn-sm d-btn-green">
-            <LayoutDashboard className="w-4 h-4" /> Dashboard
-          </button>
-        ) : (
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/login')} className="d-btn d-btn-sm d-btn-ghost">Sign In</button>
-            <button onClick={() => navigate('/register')} className="d-btn d-btn-sm d-btn-green">Get Started</button>
-          </div>
-        )}
-      </header>
-
-      <main className="flex-1 flex flex-col items-center justify-center px-6 text-center -mt-16">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', bounce: 0.4 }} className="mb-6">
-          <motion.img src="/mascot.png" alt="Bitzy" className="w-28 h-28 mx-auto object-contain mb-4" animate={{ y: [0, -10, 0], rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 4 }} />
-          <h1 className="font-display text-4xl sm:text-5xl font-black mb-3" style={{ color: 'var(--text)' }}>Learn to Code</h1>
-          <h2 className="font-display text-2xl sm:text-3xl font-black mb-4" style={{ color: '#58CC02' }}>Like Playing a Game!</h2>
-          <p className="text-base max-w-md mx-auto mb-8" style={{ color: 'var(--text-muted)' }}>Master HTML, CSS, JavaScript, React, Python, and more with interactive lessons, coding games, and challenges.</p>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="flex flex-col sm:flex-row gap-3 mb-10">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
+      <header className="w-full border-b" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--white)' }}>
+        <nav aria-label="Main navigation" className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <Link to="/" aria-label="Bitzy home" className="flex items-center gap-2.5 rounded-xl focus-visible:outline-none">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: 'var(--blue)' }}>
+              <img src="/mascot.png" alt="" className="h-8 w-8 object-contain" />
+            </span>
+            <span className="font-display text-xl font-extrabold tracking-tight" style={{ color: 'var(--blue)' }}>Bitzy</span>
+          </Link>
           {isLoggedIn ? (
-            <button onClick={() => navigate('/app/dashboard')} className="d-btn d-btn-lg d-btn-green text-lg">
-              <LayoutDashboard className="w-5 h-5" /> Go to Dashboard <ArrowRight className="w-5 h-5" />
+            <button type="button" onClick={() => navigate('/app/dashboard')} className="d-btn d-btn-sm d-btn-green">
+              <LayoutDashboard className="h-4 w-4" aria-hidden="true" /> Dashboard
             </button>
           ) : (
-            <>
-              <button onClick={() => navigate('/register')} className="d-btn d-btn-lg d-btn-green text-lg">
-                Start Learning Free <ArrowRight className="w-5 h-5" />
-              </button>
-              <button onClick={() => navigate('/login')} className="d-btn d-btn-lg d-btn-white text-lg">
-                I Already Have an Account
-              </button>
-            </>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button type="button" onClick={() => navigate('/login')} className="d-btn d-btn-sm d-btn-ghost">Sign in</button>
+              <button type="button" onClick={() => navigate('/register')} className="d-btn d-btn-sm d-btn-blue">Get started</button>
+            </div>
           )}
-        </motion.div>
+        </nav>
+      </header>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg">
-          {features.map((f, i) => (
-            <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: 'var(--surface)' }}>
-              <f.icon className="w-4 h-4 flex-shrink-0" style={{ color: '#58CC02' }} />
-              <span className="text-xs font-bold">{f.text}</span>
-            </div>
-          ))}
-        </motion.div>
+      <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.1fr_.9fr] lg:gap-16">
+        <section className="max-w-2xl">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold" style={{ color: 'var(--blue)', borderColor: 'var(--border)', backgroundColor: 'var(--white)' }}>
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--green)' }} aria-hidden="true" /> A more engaging way to learn code
+          </div>
+          <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }} className="font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-[3.5rem]" style={{ color: 'var(--text)' }}>
+            Learn to code.<br />
+            <span style={{ color: 'var(--blue)' }}>Make progress every day.</span>
+          </motion.h1>
+          <p className="mt-5 max-w-xl text-base leading-7 sm:text-lg" style={{ color: 'var(--text-muted)' }}>
+            Build practical coding skills with guided courses, interactive practice, and challenges that turn learning into a habit.
+          </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            {isLoggedIn ? (
+              <button type="button" onClick={() => navigate('/app/dashboard')} className="d-btn d-btn-lg d-btn-blue">
+                <LayoutDashboard className="h-5 w-5" aria-hidden="true" /> Go to your dashboard <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={() => navigate('/register')} className="d-btn d-btn-lg d-btn-blue">
+                  Start learning free <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => navigate('/login')} className="d-btn d-btn-lg d-btn-white">I already have an account</button>
+              </>
+            )}
+          </div>
+          <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
+            {['Learn at your pace', 'Practice what you learn', 'Track your progress'].map((item) => (
+              <span key={item} className="inline-flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--green)' }} aria-hidden="true" /> {item}
+              </span>
+            ))}
+          </div>
+        </section>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-10 flex items-center gap-6">
-          {[
-            { icon: Zap, label: 'Earn XP', color: '#FFC800' },
-            { icon: Flame, label: 'Build Streaks', color: '#FF9600' },
-            { icon: Star, label: 'Win Badges', color: '#CE82FF' },
-            { icon: CheckCircle2, label: 'Track Progress', color: '#58CC02' },
-          ].map((item, i) => (
-            <div key={i} className="flex flex-col items-center gap-1">
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: item.color + '15' }}>
-                <item.icon className="w-5 h-5" style={{ color: item.color }} />
+        <motion.aside initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.08 }} aria-label="How Bitzy helps you learn" className="relative mx-auto w-full max-w-md">
+          <div className="absolute -inset-4 -z-10 rounded-[2rem] opacity-50" style={{ background: 'radial-gradient(ellipse at center, rgba(43,127,255,.12), transparent 70%)' }} />
+          <div className="d-card overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--white)' }}>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Your learning loop</p>
+                <p className="mt-1 text-sm font-extrabold" style={{ color: 'var(--text)' }}>Learn · Practice · Grow</p>
               </div>
-              <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color: 'var(--blue)', backgroundColor: 'rgba(43,127,255,.10)' }}>
+                <BookOpen className="h-5 w-5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="px-5 py-5 sm:px-6">
+              <div className="flex justify-center py-2">
+                <img src="/mascot.png" alt="Bitzy mascot" className="h-36 w-36 object-contain sm:h-44 sm:w-44" />
+              </div>
+              <div className="space-y-3">
+                {[
+                  { icon: BookOpen, title: 'Follow a guided course', detail: 'Learn one concept at a time', tone: 'var(--blue)' },
+                  { icon: Zap, title: 'Practice with purpose', detail: 'Build confidence through repetition', tone: 'var(--green)' },
+                  { icon: Flame, title: 'Keep your momentum', detail: 'See your effort turn into progress', tone: '#B06A00' },
+                ].map(({ icon: Icon, title, detail, tone }) => (
+                  <div key={title} className="flex items-center gap-3 rounded-xl border p-3" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg)' }}>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ color: tone, backgroundColor: 'var(--surface)' }}><Icon className="h-4 w-4" aria-hidden="true" /></span>
+                    <span><span className="block text-sm font-bold" style={{ color: 'var(--text)' }}>{title}</span><span className="block text-xs" style={{ color: 'var(--text-muted)' }}>{detail}</span></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.aside>
+
+        <section aria-label="Bitzy learning features" className="grid grid-cols-2 gap-3 lg:col-span-2 lg:grid-cols-4">
+          {features.map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-3 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--white)' }}>
+              <Icon className="h-5 w-5 shrink-0" style={{ color: 'var(--blue)' }} aria-hidden="true" />
+              <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{label}</span>
             </div>
           ))}
-        </motion.div>
+        </section>
       </main>
 
-      <footer className="text-center py-6 px-4">
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mb-2">
-          <Link to="/privacy" className="text-xs font-bold hover:underline" style={{ color: 'var(--text-muted)' }}>
-            Privacy Policy
-          </Link>
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
-          <Link to="/privacy" className="text-xs font-bold hover:underline" style={{ color: 'var(--text-muted)' }}>
-            Contact Support
-          </Link>
-        </div>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Bitzy - Gamified Coding Platform © 2026</p>
+      <footer className="border-t px-4 py-5 text-center" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+        <Link to="/privacy" className="rounded px-1 text-sm font-semibold hover:underline focus-visible:outline-none">Privacy policy</Link>
+        <p className="mt-2 text-xs">Bitzy · Learn, practice, and grow as a developer.</p>
       </footer>
     </div>
   );

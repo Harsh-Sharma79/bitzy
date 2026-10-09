@@ -41,8 +41,8 @@ interface GameContextType {
   xpPopups: XPPopup[];
   showXPPopup: (amount: number, type: XPPopup['type'], message: string) => void;
   dismissPopup: (id: string) => void;
-  addXP: (amount: number, source: string) => Promise<void>;
-  addCoins: (amount: number) => Promise<void>;
+  addXP: (amount: number, source: string) => Promise<boolean>;
+  addCoins: (amount: number) => Promise<boolean>;
   spendEnergy: (amount: number) => Promise<boolean>;
   refillEnergy: () => Promise<boolean>;
   completeLesson: (courseId: number, lessonId: string, totalLessonsInCourse?: number, xpReward?: number, coinReward?: number) => Promise<void>;
@@ -63,8 +63,8 @@ const GameContext = createContext<GameContextType>({
   xpPopups: [],
   showXPPopup: () => {},
   dismissPopup: () => {},
-  addXP: async () => {},
-  addCoins: async () => {},
+  addXP: async () => false,
+  addCoins: async () => false,
   spendEnergy: async () => false,
   refillEnergy: async () => false,
   completeLesson: async () => {},
@@ -199,18 +199,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Delegates to src/lib/gamification.ts — the ONE place XP/coins are ever
   // written (also handles leaderboard sync + offline queueing there), then
   // refreshes the local profile so the UI reflects it immediately.
-  const addXP = async (amount: number, source: string) => {
-    if (!user) return;
-    const result = await libAwardXP(user.id, amount, source);
-    if (!result) console.warn('[addXP] failed or queued offline');
-    await refreshProfile();
+  const addXP = async (amount: number, source: string): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const result = await libAwardXP(user.id, amount, source);
+      if (!result) console.warn('[addXP] failed or queued offline');
+      await refreshProfile();
+      return Boolean(result);
+    } catch (error) {
+      console.warn('[addXP] reward could not be confirmed:', error);
+      return false;
+    }
   };
 
-  const addCoins = async (amount: number) => {
-    if (!user) return;
-    const result = await libAwardCoins(user.id, amount);
-    if (result === null) console.warn('[addCoins] failed or queued offline');
-    await refreshProfile();
+  const addCoins = async (amount: number): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const result = await libAwardCoins(user.id, amount);
+      if (result === null) console.warn('[addCoins] failed or queued offline');
+      await refreshProfile();
+      return result !== null;
+    } catch (error) {
+      console.warn('[addCoins] reward could not be confirmed:', error);
+      return false;
+    }
   };
 
   // Never blocks the user — energy is cosmetic/pacing only.

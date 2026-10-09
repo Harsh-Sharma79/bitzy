@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware.js";
-import { getDb } from "./queries/connection.js";
+import { createRouter, publicQuery } from "./middleware";
+import { getDb } from "./queries/connection";
 
 function getXPForLevel(level: number): number {
   if (level <= 1) return 100;

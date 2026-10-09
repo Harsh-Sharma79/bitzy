@@ -2,9 +2,9 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Home, BookOpen, Trophy, Sparkles, Swords, Gamepad2, Bug,
+  Home, BookOpen, Trophy, Sparkles, Swords, Gamepad2,
   Sun, Moon, User, LogOut, Shield, Heart, Star,
-  FolderKanban, Flame,
+  FolderKanban, Flame, Skull,
   Mic, Users, ChevronRight, X, Grid3X3, Award
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -23,7 +23,7 @@ const sidebarNav = [
   { path: '/app/courses', label: 'Courses', icon: BookOpen },
   { path: '/app/games', label: 'Play', icon: Gamepad2 },
   { path: '/app/challenges', label: 'Arena', icon: Swords },
-  { path: '/app/bug-hunter', label: 'Bug Hunter', icon: Bug },
+  { path: '/app/boss-battle', label: 'Boss Battle', icon: Skull },
   { path: '/app/leaderboard', label: 'League', icon: Trophy },
   { path: '/app/achievements', label: 'Badges', icon: Star },
   { path: '/app/mentor', label: 'AI Mentor', icon: Sparkles },
@@ -66,6 +66,15 @@ export default function AppLayout() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!showMoreDrawer) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowMoreDrawer(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showMoreDrawer]);
+
   const xp = profile?.xp ?? 0;
   const displayName = profile?.display_name ?? 'Learner';
   const avatar = profile?.avatar;
@@ -86,7 +95,7 @@ export default function AppLayout() {
             <img src="/mascot.png" alt="Bitzy" className="w-9 h-9 object-contain" />
           </div>
           <div>
-            <h1 className="font-display text-xl font-bold text-[#2B7FFF]">Bitzy</h1>
+            <h1 className="font-display text-xl font-bold" style={{ color: 'var(--blue)' }}>Bitzy</h1>
             <p className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>Learn to Code</p>
           </div>
         </div>
@@ -94,11 +103,11 @@ export default function AppLayout() {
         {/* Profile card */}
         <div className="mx-4 mb-3 p-3 rounded-3xl border-2" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border-2 border-[#2B7FFF]" style={{ backgroundColor: 'rgba(43,127,255,0.12)' }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border-2" style={{ backgroundColor: 'rgba(30,99,212,0.12)', borderColor: 'var(--blue)' }}>
               {avatar ? (
                 <img src={avatar} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-lg font-bold text-[#2B7FFF]">{displayName[0]?.toUpperCase()}</span>
+                <span className="text-lg font-bold" style={{ color: 'var(--blue)' }}>{displayName[0]?.toUpperCase()}</span>
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -113,14 +122,14 @@ export default function AppLayout() {
           </div>
         </div>
 
-        <nav className="flex-1 px-2 py-2">
+        <nav aria-label="Main navigation" className="flex-1 px-2 py-2">
           {/* Primary nav */}
           {sidebarNav.map((item) => (
-            <div key={item.path} data-tour={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`} onClick={() => navigate(item.path)} className={`d-nav-item ${isActive(item.path) ? 'active' : ''}`}>
-              <item.icon className="w-5 h-5" />
+            <button type="button" key={item.path} data-tour={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`} onClick={() => navigate(item.path)} className={`d-nav-item w-full text-left ${isActive(item.path) ? 'active' : ''}`} aria-current={isActive(item.path) ? 'page' : undefined}>
+              <item.icon className="w-5 h-5" aria-hidden="true" />
               <span>{item.label}</span>
-              {isActive(item.path) && <div className="ml-auto w-2 h-2 rounded-full bg-[#58CC02]" />}
-            </div>
+              {isActive(item.path) && <span aria-hidden="true" className="ml-auto w-2 h-2 rounded-full bg-[#2B7FFF]" />}
+            </button>
           ))}
 
           {/* Divider */}
@@ -129,19 +138,19 @@ export default function AppLayout() {
 
           {/* Extra nav */}
           {sidebarNavExtra.map((item) => (
-            <div key={item.path} data-tour={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`} onClick={() => navigate(item.path)} className={`d-nav-item ${isActive(item.path) ? 'active' : ''}`}>
-              <item.icon className="w-5 h-5" />
+            <button type="button" key={item.path} data-tour={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`} onClick={() => navigate(item.path)} className={`d-nav-item w-full text-left ${isActive(item.path) ? 'active' : ''}`} aria-current={isActive(item.path) ? 'page' : undefined}>
+              <item.icon className="w-5 h-5" aria-hidden="true" />
               <span>{item.label}</span>
-              {isActive(item.path) && <div className="ml-auto w-2 h-2 rounded-full bg-[#58CC02]" />}
-            </div>
+              {isActive(item.path) && <span aria-hidden="true" className="ml-auto w-2 h-2 rounded-full bg-[#2B7FFF]" />}
+            </button>
           ))}
         </nav>
 
         <div className="p-4 border-t-2" style={{ borderColor: 'var(--border)' }}>
-          <div onClick={() => navigate('/app/profile')} className="d-nav-item">
-            <User className="w-5 h-5" />
+          <button type="button" onClick={() => navigate('/app/profile')} className="d-nav-item w-full text-left" aria-current={isActive('/app/profile') ? 'page' : undefined}>
+            <User className="w-5 h-5" aria-hidden="true" />
             Profile
-          </div>
+          </button>
           <div onClick={() => navigate('/app/settings')} className="d-nav-item">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
             Settings
@@ -163,13 +172,13 @@ export default function AppLayout() {
 
       {/* ===== MOBILE HEADER ===== */}
       <header
-        className="lg:hidden sticky top-0 z-30 border-b-2" style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', paddingTop: "env(safe-area-inset-top)" }}>
+        className="lg:hidden sticky top-0 z-30 border-b" style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', paddingTop: "env(safe-area-inset-top)" }}>
         <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <div data-tour="logo" className="flex items-center gap-2.5" onClick={() => setTourVisible(true)} style={{ cursor: 'pointer' }}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#2B7FFF' }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--blue)' }}>
               <img src="/mascot.png" alt="" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-display text-lg font-bold text-[#2B7FFF]">Bitzy</span>
+            <span className="font-display text-lg font-bold" style={{ color: 'var(--blue)' }}>Bitzy</span>
           </div>
           <div className="flex items-center gap-2">
             {streak > 0 && (
@@ -191,7 +200,7 @@ export default function AppLayout() {
                 />
               )}
             </div>
-            <button data-tour="theme-toggle" onClick={toggleTheme} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--surface)' }}>
+            <button type="button" data-tour="theme-toggle" aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} onClick={toggleTheme} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--surface)' }}>
               {theme === 'light' ? <Moon className="w-4 h-4" style={{ color: 'var(--text-muted)' }} /> : <Sun className="w-4 h-4 text-[#FFC800]" />}
             </button>
           </div>
@@ -213,22 +222,24 @@ export default function AppLayout() {
 
       {/* ===== MOBILE BOTTOM NAV ===== */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t-2" style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', paddingBottom: "env(safe-area-inset-bottom)" }}>
+        aria-label="Primary navigation" className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t" style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="flex items-center justify-around py-1 max-w-lg mx-auto px-1">
           {mobileNav.map((item) => {
             const active = isActive(item.path);
             return (
               <motion.button key={item.path} data-tour={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`} whileTap={{ scale: 0.85 }} onClick={() => navigate(item.path)}
-                className="flex flex-col items-center gap-0.5 px-1.5 sm:px-3 py-1.5 rounded-2xl relative flex-1">
+                className="flex flex-col items-center gap-0.5 px-1.5 sm:px-3 py-1.5 rounded-2xl relative flex-1" aria-label={item.label} aria-current={active ? 'page' : undefined}>
                 {active && <motion.div layoutId="mobTab" className="absolute inset-0 rounded-2xl" style={{ backgroundColor: 'rgba(88,204,2,0.1)' }} transition={{ type: 'spring', stiffness: 500, damping: 35 }} />}
-                <item.icon className="w-[18px] h-[18px] sm:w-5 sm:h-5 relative z-10" style={{ color: active ? '#58CC02' : 'var(--text-muted)' }} />
-                <span className="text-[9px] sm:text-[10px] font-bold relative z-10 font-display" style={{ color: active ? '#58CC02' : 'var(--text-muted)' }}>{item.label}</span>
+                <item.icon className="w-[18px] h-[18px] sm:w-5 sm:h-5 relative z-10" style={{ color: active ? 'var(--blue)' : 'var(--text-muted)' }} />
+                <span className="text-[9px] sm:text-[10px] font-bold relative z-10 font-display" style={{ color: active ? 'var(--blue)' : 'var(--text-muted)' }}>{item.label}</span>
               </motion.button>
             );
           })}
           {/* MORE button */}
           <motion.button
             data-tour="nav-more"
+            type="button"
+            aria-label="Open more navigation options"
             whileTap={{ scale: 0.85 }}
             onClick={() => setShowMoreDrawer(true)}
             className="flex flex-col items-center gap-0.5 px-1.5 sm:px-3 py-1.5 rounded-2xl relative flex-1"
@@ -256,12 +267,15 @@ export default function AppLayout() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 400, damping: 40 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="more-drawer-heading"
               className="fixed bottom-0 left-0 right-0 z-50 lg:hidden rounded-t-3xl border-t-2 p-5"
               style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display font-bold text-lg">Explore Bitzy</h3>
-                <button onClick={() => setShowMoreDrawer(false)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--surface)' }}>
+                <h3 id="more-drawer-heading" className="font-display font-bold text-lg">Explore Bitzy</h3>
+                <button type="button" aria-label="Close navigation drawer" onClick={() => setShowMoreDrawer(false)} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--surface)' }}>
                   <X className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 </button>
               </div>
@@ -275,12 +289,12 @@ export default function AppLayout() {
                       onClick={() => { navigate(item.path); setShowMoreDrawer(false); }}
                       className="flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all"
                       style={{
-                        borderColor: active ? '#58CC02' : 'var(--border)',
+                        borderColor: active ? 'var(--blue)' : 'var(--border)',
                         backgroundColor: active ? 'rgba(88,204,2,0.12)' : 'var(--surface)',
                       }}
                     >
-                      <item.icon className="w-5 h-5" style={{ color: active ? '#58CC02' : 'var(--text-muted)' }} />
-                      <span className="text-[10px] font-bold text-center leading-tight" style={{ color: active ? '#58CC02' : 'var(--text-muted)' }}>
+                      <item.icon className="w-5 h-5" style={{ color: active ? 'var(--blue)' : 'var(--text-muted)' }} />
+                      <span className="text-[10px] font-bold text-center leading-tight" style={{ color: active ? 'var(--blue)' : 'var(--text-muted)' }}>
                         {item.label}
                       </span>
                     </motion.button>

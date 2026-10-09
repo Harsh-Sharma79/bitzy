@@ -21,7 +21,6 @@ import CertificatesPage from '@/pages/CertificatesPage';
 import LessonPlayerPage from '@/pages/LessonPlayerPage';
 import QuizPage from '@/pages/QuizPage';
 import ChallengesPage from '@/pages/ChallengesPage';
-import BugHunterPage from '@/pages/BugHunterPage';
 import ChallengeDetailPage from '@/pages/ChallengeDetailPage';
 import AIMentorPage from '@/pages/AIMentorPage';
 import LeaderboardPage from '@/pages/LeaderboardPage';
@@ -90,7 +89,6 @@ export default function App() {
                   <Route path="courses/:courseSlug/:moduleSlug/:lessonSlug" element={<LessonPlayerPage />} />
                   <Route path="quiz/:quizId" element={<QuizPage />} />
                   <Route path="challenges" element={<ChallengesPage />} />
-                  <Route path="bug-hunter" element={<BugHunterPage />} />
                   <Route path="challenges/:slug" element={<ChallengeDetailPage />} />
                   <Route path="mentor" element={<AIMentorPage />} />
                   <Route path="leaderboard" element={<LeaderboardPage />} />
