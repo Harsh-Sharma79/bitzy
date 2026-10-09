@@ -1,9 +1,9 @@
 import type { Hono } from "hono";
 import type { HttpBindings } from "@hono/node-server";
 import crypto from "crypto";
-import { getServiceDb } from "./queries/connection";
-import { env } from "./lib/env";
-import { unlockCourse, bumpRevenueStats } from "./payment-router";
+import { getServiceDb } from "./queries/connection.js";
+import { env } from "./lib/env.js";
+import { unlockCourse, bumpRevenueStats } from "./payment-router.js";
 
 type App = Hono<{ Bindings: HttpBindings }>;
 

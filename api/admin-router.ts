@@ -9,8 +9,8 @@
  *   admin: adminRouter,
  */
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
+import { createRouter, publicQuery } from "./middleware.js";
+import { getDb } from "./queries/connection.js";
 
 const ADMIN_EMAIL = "aaryanpandeyop@gmail.com";
 

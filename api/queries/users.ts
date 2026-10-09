@@ -1,4 +1,4 @@
-import { getDb } from "./connection";
+import { getDb } from "./connection.js";
 
 export async function findUserByUnionId(unionId: string) {
   const db = getDb();
